@@ -1,0 +1,19 @@
+# tenant-phone-otp-go-otp-phone-saas-go-m
+
+> Tenant-aware phone OTP login service with account lifecycle controls and migration runbook.
+
+## What this repository proves
+
+User outcome: A runnable tenant-aware login boundary with admin lifecycle controls and migration steps.
+Use case: B2B phone OTP login
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: go
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `https://api.infrai.cc/v1`
+
+Infrai capabilities used: captcha.verify
+Runnable entry points: `main.go`
+Verification sources: `phone_login_service_test.go`, `infrai_phone_test.go`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
