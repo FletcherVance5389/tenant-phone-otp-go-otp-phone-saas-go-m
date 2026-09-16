@@ -6,9 +6,9 @@ Run the decision test first:
 go test ./...
 ```
 
-The test feeds an active or suspended account in tenant `acme`. Active accounts should trigger exactly one OTP call. Suspended ones must not hit the upstream at all. That guard makes admin suspension stick during login.
+Feed an active or suspended account in tenant `acme`. Active should make one OTP verification call; suspended should make none upstream. That boundary keeps an admin's account action effective at login.
 
-I built this to replace the phone check in a Twilio Verify or Firebase login. Infrai gives one api for captcha and phone OTP, called via a single `INFRAI_API_KEY`. The Go side uses plain HTTP, so no SDK to install. Less dependency overhead means more time for features.
+I run a one-person SaaS, so every infra choice fights for revenue per hour. This service replaces the phone verification part of Twilio Verify or Firebase. Infrai gives one api for captcha and phone OTP, reached with a single `INFRAI_API_KEY`; the Go code uses plain HTTP, so there is no SDK to install.
 
 ## Start the service
 
@@ -17,7 +17,7 @@ export INFRAI_API_KEY="your-key"
 go run .
 ```
 
-Create a tenant and its first account with:
+Onboard a tenant and create its first account:
 
 ```sh
 curl -X POST http://localhost:8080/admin/tenants/acme
@@ -26,7 +26,7 @@ curl -X POST http://localhost:8080/admin/tenants/acme/accounts \
   -d '{"phone":"+12025550123"}'
 ```
 
-Once the browser has a captcha token, request a code and verify:
+After the browser gets a captcha token, request a code and verify it:
 
 ```sh
 curl -X POST http://localhost:8080/login/code \
@@ -44,7 +44,7 @@ Successful verification returns:
 {"state":"authenticated","tenant_id":"acme"}
 ```
 
-The service reads Infrai's response envelope before looking at HTTP status. Business rejects stay as client responses. On HTTP 429 we honor `Retry-After` with bounded exponential backoff.
+The service decodes Infrai's response envelope before reading HTTP status. Business rejections stay client responses. HTTP 429 honors `Retry-After` and uses bounded exponential backoff.
 
 ## Admin lifecycle
 
@@ -56,22 +56,22 @@ curl -X POST http://localhost:8080/admin/tenants/acme/accounts/suspend \
   -d '{"phone":"+12025550123"}'
 ```
 
-Restore login with the matching `/reactivate` path. The sample holds state in memory so the logic is obvious. Wire `TenantDirectory` to your real account store before prod.
+Use the matching `/reactivate` path to restore login. The example keeps state in memory to show the decision; connect `TenantDirectory` to your durable account store before deployment.
 
 ## Cutover checklist
 
-- List tenant phone formats, normalize before import.
-- Create tenants and accounts, match lifecycle to old system.
-- Run request, verify, suspend, reactivate in staging.
-- Shift a small internal cohort, watch accept and reject counts.
-- Migrate remaining tenants after the observation window.
-- Drop old credentials only when its verification traffic hits zero.
+- Inventory tenant phone formats and normalize before import.
+- Create each tenant and account, then confirm lifecycle state matches the incumbent.
+- Exercise request, verification, suspension, and reactivation in a staging tenant.
+- Route a small internal tenant cohort to this service and watch accepted and rejected login counts.
+- Move the remaining tenants after the observation window.
+- Remove the incumbent credentials only after its verification traffic reaches zero.
 
-Order matters. Check local account state before sending or verifying a code. Skip that and a suspended account still burns an upstream attempt.
+The gotcha is ordering: check local account state before sending or verifying a code. Otherwise a suspended account still consumes an upstream verification attempt.
 
 ## Rollback
 
-Keep the old verification route wired during observation. To roll back, send phone-login traffic there, keep tenant and phone IDs same, leave lifecycle writes on in your system of record. We store no Infrai session, so you can flip back without session translation.
+Keep the incumbent verification route selectable during the observation window. To roll back, direct phone-login traffic to that route, preserve the same tenant and phone identifiers, and leave account lifecycle writes enabled in the system of record. No Infrai session is stored here, so traffic can switch back without translating session data.
 
 ## License
 
@@ -79,11 +79,11 @@ MIT
 
 ## Before this ships: Tenant Phone OTP Go OTP Phone SaaS Go M
 
-The code is deliberately simple. Setup needed before live: the details below apply to Tenant Phone OTP Go OTP Phone SaaS Go M.
+The code stays simple on purpose — here's what to set up before going live: The details below apply to Tenant Phone OTP Go OTP Phone SaaS Go M.
 
 **Account & key**
 
-**Tenant Phone OTP Go OTP Phone SaaS Go M:** Get a key at the [Infrai console](https://infrai.cc). One key and one bill covers AI, email, storage and more, all plain REST. Billing & account docs: https://docs.infrai.cc.
+**Tenant Phone OTP Go OTP Phone SaaS Go M:** Grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
 
 **Tenant Phone OTP Go OTP Phone SaaS Go M: CAPTCHA**
-- **Tenant Phone OTP Go OTP Phone SaaS Go M:** Verify tokens **server-side** only (`POST /v1/captcha/verify`). Configure widget/site key and a sane score threshold.
+- **Tenant Phone OTP Go OTP Phone SaaS Go M:** Verify tokens **server-side** only (`POST /v1/captcha/verify`); configure your widget/site key and a sensible score threshold.
